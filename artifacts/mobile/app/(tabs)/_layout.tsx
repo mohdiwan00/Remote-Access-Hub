@@ -9,16 +9,28 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 
-// IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
-// NativeTabs intentionally does NOT use custom design tokens — liquid glass
-// is a system-level appearance provided by iOS and cannot be overridden.
-// Custom brand colors are applied only on the ClassicTabLayout path (older iOS / Android / web).
 function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
+        <Icon sf={{ default: "server.rack", selected: "server.rack" }} />
+        <Label>Connections</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="terminal">
+        <Icon sf={{ default: "terminal", selected: "terminal.fill" }} />
+        <Label>Terminal</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="files">
+        <Icon sf={{ default: "folder", selected: "folder.fill" }} />
+        <Label>Files</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="keys">
+        <Icon sf={{ default: "key", selected: "key.fill" }} />
+        <Label>Keys</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <Icon sf={{ default: "gear", selected: "gear" }} />
+        <Label>Settings</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -36,14 +48,14 @@ function ClassicTabLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
-        headerShown: true,
+        headerShown: false,
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.background,
-          borderTopWidth: isWeb ? 1 : 0,
+          backgroundColor: isIOS ? "transparent" : colors.card,
+          borderTopWidth: 1,
           borderTopColor: colors.border,
           elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
+          height: isWeb ? 84 : 60,
         },
         tabBarBackground: () =>
           isIOS ? (
@@ -52,25 +64,69 @@ function ClassicTabLayout() {
               tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
-          ) : isWeb ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: colors.background },
-              ]}
-            />
-          ) : null,
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
+          ),
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Connections",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
+              <SymbolView name="server.rack" tintColor={color} size={22} />
             ) : (
-              <Feather name="home" size={22} color={color} />
+              <Feather name="server" size={20} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="terminal"
+        options={{
+          title: "Terminal",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="terminal" tintColor={color} size={22} />
+            ) : (
+              <Feather name="terminal" size={20} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="files"
+        options={{
+          title: "Files",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="folder" tintColor={color} size={22} />
+            ) : (
+              <Feather name="folder" size={20} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="keys"
+        options={{
+          title: "Keys",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="key" tintColor={color} size={22} />
+            ) : (
+              <Feather name="key" size={20} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="gear" tintColor={color} size={22} />
+            ) : (
+              <Feather name="settings" size={20} color={color} />
             ),
         }}
       />
