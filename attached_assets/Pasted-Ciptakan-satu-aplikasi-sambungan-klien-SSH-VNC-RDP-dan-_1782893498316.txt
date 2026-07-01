@@ -1,0 +1,33 @@
+Ciptakan satu aplikasi  sambungan klien SSH, VNC, RDP dan SFTP sumber terbuka untuk Android dengan desktop Wayland asli dan storan awan. 
+
+Terminal:
+- Emulator VT100/xterm penuh dengan Unicode, berbilang tab dan 6 skema warna
+- Kegigihan sesi melalui tmux, zellij, skrin atau apl byobu-mouse (Mod papan kekunci Vim boleh alih) bar alat dengan Esc, Ctrl, Alt, anak panah, kekunci fungsi dan makro tersuai
+- Pemilihan teks dengan pengembangan perkataan, salin dan pengesanan URL boleh klik- Input suara dan mod autolengkap
+- Mosh dan Terminal Abadi untuk perayauan dan sambungan berterusan
+
+Native Wayland Desktop:
+- GPU-dipercepatkan labwc compositor berjalan terus pada peranti anda
+- Panel Waybar, penambah fail pelancar Firefox, pelancar apl fuzzel kalkulator, pemapar imej
+- Keserasian aplikasi XWayland untuk X11
+- Pengurusan berbilang desktop — jalankan berbilang desktop serentak
+- Tiada akar diperlukan (PROot dengan Alpine Linux) Desktop Jauh VNC:
+- Pemapar VNC dengan mod pinch-to-zoom, pan dan skrin penuh
+- Sokongan terowong SSH untuk sambungan yang disulitkan
+- Sokongan Touch-to-klik Desktop dengan seretan Desktop x P Desktop Desktop Jauh
+- Cubit-untuk-zum, papan kekunci dengan pemetaan kod imbasan
+- Terowong SSH dengan sambung automatik melalui profil yang disimpan Cloud Storage:
+- 60 pembekal melalui rclone — Google Drive, Dropbox, OneDrive, S3 dan banyak lagi
+- Pengesahan OAuth dengan aliran penyemak imbas
+- Penyegerakan folder dengan penapis, had lebar jalur dan pratonton larian kering melalui pelayan TV DLNA yang kering
+- Penstriman media untuk VLC DLNA pintar. Penyemak imbas SFTP dengan muat naik, muat turun, namakan semula, padam dan pemindahan folder
+- Pelayaran perkongsian fail SMB/Windows dengan terowong SSH pilihan
+- Salin silang sistem fail antara mana-mana hujung belakang Rangkaian:
+- SSH dengan penyambungan semula automatik, pemajuan port dan ProxyJump multi-hop
+- Penemuan automatik rakan skala ekor
+- Penemuan rangkaian hos retikulum
+-SSH-Sokongan rangkaian tempatan melalui rnshcur penjanaan (Ed25519, RSA, ECDSA) dengan storan yang disulitkan
+- Sokongan kunci perkakasan FIDO2 (ed25519-sk, ecdsa-sk) melalui NFC atau USB
+- Kunci aplikasi biometrik dengan tamat masa boleh dikonfigurasikan
+- Log audit sambungan.
+

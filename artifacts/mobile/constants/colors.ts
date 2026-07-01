@@ -1,0 +1,30 @@
+const colors = {
+  light: {
+    text: "#e6edf3",
+    tint: "#58a6ff",
+    background: "#0d1117",
+    foreground: "#e6edf3",
+    card: "#161b22",
+    cardForeground: "#e6edf3",
+    primary: "#58a6ff",
+    primaryForeground: "#ffffff",
+    secondary: "#1f2937",
+    secondaryForeground: "#e6edf3",
+    muted: "#1f2937",
+    mutedForeground: "#8b949e",
+    accent: "#3fb950",
+    accentForeground: "#0d1117",
+    destructive: "#f85149",
+    destructiveForeground: "#ffffff",
+    border: "#30363d",
+    input: "#21262d",
+    ssh: "#58a6ff",
+    vnc: "#a371f7",
+    rdp: "#f78166",
+    sftp: "#3fb950",
+    warning: "#d29922",
+  },
+  radius: 10,
+};
+
+export default colors;
