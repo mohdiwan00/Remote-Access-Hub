@@ -1,0 +1,28 @@
+kind = "video"
+previewPath = "/connectx-video/"
+title = "ConnectX — Product Video"
+description = "A 45-60 second animated motion graphics video showcasing ConnectX, a professional SSH/VNC/RDP/SFTP mobile client app. Tech-forward, dark aesthetic, cinematic pacing."
+version = "1.0.0"
+id = "artifacts/connectx-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/connectx-video/" ]
+localPort = 23457
+
+[services.development]
+run = "pnpm --filter @workspace/connectx-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/connectx-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/connectx-video/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23457"
+BASE_PATH = "/connectx-video/"

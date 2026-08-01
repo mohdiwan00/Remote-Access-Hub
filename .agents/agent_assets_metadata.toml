@@ -1,8 +1,14 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "x-hkpPGhDZjEofqiupiNV"
 uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
 title = "connectx app icon"
+
+[[outputs]]
+id = "-2gyG3SGHSieD-spnLRPq"
+uri = "file://artifacts/connectx-video/public/audio/bg_music.mp3"
+type = "audio"
+title = "ConnectX background music"
+description = "Generated music: Driving synthwave instrumental background music for a tech product launch video. Pulsing synthesizers, crisp electronic drums, 120 BPM, dark and confident mood. Patient intro, steady…"
