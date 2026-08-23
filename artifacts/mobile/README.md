@@ -43,7 +43,7 @@ Once loaded, you'll see five tabs at the bottom:
 |-----|-------------|
 | **Connections** | Add, edit, delete, and browse saved connections |
 | **Terminal** | Open terminal sessions with colour schemes and a key toolbar |
-| **Files** | Browse a demo SFTP file tree and cloud storage providers |
+| **Files** | Browse a real SFTP directory and manage remote folders/files |
 | **Keys** | Manage SSH key pairs (Ed25519 / RSA / ECDSA) |
 | **Settings** | Configure security, SSH, terminal, and network options |
 
@@ -76,10 +76,10 @@ These features look and feel complete but do **not** make real network connectio
 
 | Feature | What you see | What's missing |
 |---------|-------------|----------------|
-| **SSH terminal** | Realistic login banner, responds to `ls`, `pwd`, `whoami`, `uname -a`, `df -h`, `top`, `date` | No real SSH connection — it's a simulated shell. All other commands return `command not found`. |
+| **SSH terminal** | Real interactive shell over the API server's WebSocket bridge, including command input, output, resize, escape, and arrow-key controls | Requires a reachable SSH server and valid saved credentials. |
 | **VNC / RDP sessions** | "Viewer launching" alert when you connect | No VNC/RDP viewer — native viewer library not yet integrated |
-| **SFTP file browser** | Full file tree with icons, breadcrumbs, multi-select | Demo files only — no real SFTP transfer |
-| **SSH key generation** | Shows Ed25519/RSA/ECDSA key pair in UI | Keys are randomly generated strings, not real cryptographic keys |
+| **SFTP file browser** | Real remote directory listing, breadcrumbs, navigation, folder creation, and deletion | Upload/download and file preview are not implemented yet |
+| **SSH key generation** | Generates real Ed25519/RSA/ECDSA key pairs through the API server and stores private keys in SecureStore | Protect the API server before public deployment |
 | **Cloud storage (Drive, Dropbox, S3…)** | Lists all providers with connect prompts | No OAuth or API connection implemented |
 | **SMB / Network browser** | Tab exists in Files | Not yet implemented — shows empty state |
 | **Biometric lock** | Toggle exists in Settings | No real biometric auth wired up |

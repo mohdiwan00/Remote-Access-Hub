@@ -19,6 +19,7 @@ import { useConnections, type SSHKey } from "@/context/ConnectionsContext";
 import { useColors } from "@/hooks/useColors";
 
 const KEY_TYPES: SSHKey["type"][] = ["ed25519", "rsa", "ecdsa"];
+const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 const KEY_TYPE_INFO: Record<SSHKey["type"], { label: string; desc: string; color: string }> = {
   ed25519: { label: "Ed25519", desc: "Fastest & most secure. Recommended.", color: "#3fb950" },
   rsa: { label: "RSA 4096", desc: "Widely compatible. Good for older servers.", color: "#58a6ff" },
@@ -50,18 +51,23 @@ export default function KeysScreen() {
       return;
     }
     setGenerating(true);
-    setTimeout(() => {
-      const mockPublicKey = keyType === "ed25519"
-        ? `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI${Math.random().toString(36).substring(2, 42).toUpperCase()} ${keyName}`
-        : keyType === "rsa"
-        ? `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ${Math.random().toString(36).substring(2, 80).toUpperCase()} ${keyName}`
-        : `ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY${Math.random().toString(36).substring(2, 60).toUpperCase()} ${keyName}`;
-      addKey({ name: keyName.trim(), type: keyType, publicKey: mockPublicKey });
+    try {
+      const response = await fetch(`${API_BASE}/api/keys/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: keyType, comment: keyName.trim() }),
+      });
+      const data = await response.json() as { publicKey?: string; privateKey?: string; error?: string };
+      if (!response.ok || !data.publicKey || !data.privateKey) throw new Error(data.error ?? "Key generation failed");
+      addKey({ name: keyName.trim(), type: keyType, publicKey: data.publicKey, privateKey: data.privateKey });
       setGenerating(false);
       setShowGenerate(false);
       setKeyName("");
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }, 1200);
+    } catch (error) {
+      setGenerating(false);
+      Alert.alert("Generation failed", error instanceof Error ? error.message : "Unable to generate key");
+    }
   };
 
   const handleDelete = (key: SSHKey) => {

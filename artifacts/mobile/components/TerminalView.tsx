@@ -77,8 +77,7 @@ export function TerminalView({ session, onCommand, onClose }: Props) {
   const [histIdx, setHistIdx] = useState(-1);
   const flatRef = useRef<FlatList>(null);
 
-  const hostname = session.host.replace(/\..*/g, "");
-  const prompt = `ubuntu@${hostname}:~$ `;
+  const prompt = session.status === "connected" ? "" : `${session.status} `;
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -89,16 +88,6 @@ export function TerminalView({ session, onCommand, onClose }: Props) {
     onCommand(cmd);
     setInput("");
 
-    const response = SIMULATED_RESPONSES[cmd];
-    if (response) {
-      response.forEach((line) => {
-        setTimeout(() => onCommand(`__output__${line}`), 200);
-      });
-    } else if (cmd === "clear") {
-      onCommand("__clear__");
-    } else {
-      setTimeout(() => onCommand(`__output__bash: ${cmd}: command not found`), 150);
-    }
   };
 
   const handleToolbarKey = (key: string) => {
@@ -112,18 +101,26 @@ export function TerminalView({ session, onCommand, onClose }: Props) {
       setHistIdx(nextIdx);
       setInput(nextIdx === -1 ? "" : history[nextIdx] ?? "");
     } else if (key === "ESC") {
+      onCommand("\u001b");
       setInput("");
     } else if (key === "CTRL") {
       setInput((v) => v + "^");
     } else if (key === "ALT") {
-      setInput((v) => v + "");
+      onCommand("\u001b");
+    } else if (key === "UP") {
+      onCommand("\u001b[A");
+    } else if (key === "DOWN") {
+      onCommand("\u001b[B");
+    } else if (key === "LEFT") {
+      onCommand("\u001b[D");
+    } else if (key === "RIGHT") {
+      onCommand("\u001b[C");
     } else {
       setInput((v) => v + key);
     }
   };
 
   const renderLine = ({ item }: { item: TerminalLine }) => {
-    const isPromptLine = item.type === "output" && item.text.endsWith("$");
     return (
       <Text
         style={[
