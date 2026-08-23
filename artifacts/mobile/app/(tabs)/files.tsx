@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { FileItem, type FileEntry } from "@/components/FileItem";
 import { useColors } from "@/hooks/useColors";
+import { useConnections } from "@/context/ConnectionsContext";
 
 const DEMO_FILES: FileEntry[] = [
   { id: "1", name: "home", type: "dir", modified: Date.now() - 86400000 },
@@ -47,13 +48,70 @@ const CLOUD_PROVIDERS = [
 export default function FilesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { connections } = useConnections();
   const [activeView, setActiveView] = useState<View_>("sftp");
   const [path, setPath] = useState(["/"]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [files] = useState<FileEntry[]>(DEMO_FILES);
+  const [files, setFiles] = useState<FileEntry[]>([]);
+  const [sftpSessionId, setSftpSessionId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const currentPath = "/" + path.slice(1).join("/");
+  const connection = connections.find((item) => item.type === "sftp" || item.type === "ssh");
+  const apiBase = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+
+  const loadFiles = async (sessionId: string, directory: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBase}/api/sftp/list?sessionId=${encodeURIComponent(sessionId)}&path=${encodeURIComponent(directory)}`);
+      const data = await response.json() as { files?: FileEntry[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Unable to list remote files");
+      setFiles(data.files ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to list remote files");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!connection) {
+      setFiles([]);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    void fetch(`${apiBase}/api/sftp/connect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: connection.host, port: connection.port, username: connection.username, password: connection.password }),
+    }).then(async (response) => {
+      const data = await response.json() as { sessionId?: string; error?: string };
+      if (!response.ok || !data.sessionId) throw new Error(data.error ?? "Unable to connect to SFTP");
+      if (cancelled) return;
+      setSftpSessionId(data.sessionId);
+      await loadFiles(data.sessionId, "/");
+    }).catch((e) => {
+      if (!cancelled) setError(e instanceof Error ? e.message : "Unable to connect to SFTP");
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+      setSftpSessionId((sessionId) => {
+        if (sessionId) void fetch(`${apiBase}/api/sftp/disconnect`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
+        return null;
+      });
+    };
+  }, [connection?.id]);
 
   const handleFilePress = (entry: FileEntry) => {
     if (selected.length > 0) {
@@ -61,11 +119,13 @@ export default function FilesScreen() {
       return;
     }
     if (entry.type === "dir") {
-      setPath((p) => [...p, entry.name]);
+      const nextPath = [...path, entry.name];
+      setPath(nextPath);
+      if (sftpSessionId) void loadFiles(sftpSessionId, "/" + nextPath.slice(1).join("/"));
     } else {
       Alert.alert(entry.name, `Size: ${entry.size ? (entry.size / 1024).toFixed(1) + " KB" : "--"}\n\nWhat would you like to do?`, [
-        { text: "Download", onPress: () => Alert.alert("Download", "Downloading " + entry.name) },
-        { text: "Preview", onPress: () => Alert.alert("Preview", "Previewing " + entry.name) },
+        { text: "Download", onPress: () => Alert.alert("Download", "Download transport is not available yet.") },
+        { text: "Preview", onPress: () => Alert.alert("Preview", "Remote file preview is not available yet.") },
         { text: "Cancel", style: "cancel" },
       ]);
     }
@@ -79,20 +139,62 @@ export default function FilesScreen() {
   };
 
   const handleBack = () => {
-    if (path.length > 1) setPath((p) => p.slice(0, -1));
+    if (path.length > 1) {
+      const nextPath = path.slice(0, -1);
+      setPath(nextPath);
+      if (sftpSessionId) void loadFiles(sftpSessionId, "/" + nextPath.slice(1).join("/"));
+    }
   };
 
   const handleDelete = () => {
     Alert.alert("Delete", `Delete ${selected.length} item(s)?`, [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => setSelected([]) },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        if (!sftpSessionId) return;
+        try {
+          await Promise.all(selected.map(async (id) => {
+            const item = files.find((file) => file.id === id);
+            if (!item) return;
+            const response = await fetch(`${apiBase}/api/sftp/delete`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: sftpSessionId,
+                path: `${currentPath === "/" ? "" : currentPath}/${item.name}`,
+                isDir: item.type === "dir",
+              }),
+            });
+            if (!response.ok) {
+              const data = await response.json() as { error?: string };
+              throw new Error(data.error ?? `Unable to delete ${item.name}`);
+            }
+          }));
+          setSelected([]);
+          await loadFiles(sftpSessionId, currentPath);
+        } catch (e) {
+          Alert.alert("Delete failed", e instanceof Error ? e.message : "Unable to delete selected items");
+        }
+      } },
     ]);
   };
 
   const handleNewFolder = () => {
-    Alert.alert("New Folder", "Create a new folder at " + currentPath, [
+    Alert.prompt("New Folder", "Create a folder at " + currentPath, [
       { text: "Cancel", style: "cancel" },
-      { text: "Create", onPress: () => {} },
+      { text: "Create", onPress: async (name?: string) => {
+        if (!sftpSessionId || !name?.trim()) return;
+        const response = await fetch(`${apiBase}/api/sftp/mkdir`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sftpSessionId, path: `${currentPath === "/" ? "" : currentPath}/${name.trim()}` }),
+        });
+        if (!response.ok) {
+          const data = await response.json() as { error?: string };
+          Alert.alert("Create folder failed", data.error ?? "Unable to create folder");
+          return;
+        }
+        await loadFiles(sftpSessionId, currentPath);
+      } },
     ]);
   };
 
@@ -179,7 +281,15 @@ export default function FilesScreen() {
             </View>
           )}
 
-          <FlatList
+            {!connection && <EmptyState icon="server" title="No SFTP connection" subtitle="Add an SSH or SFTP connection first" />}
+            {connection && error && (
+              <View style={styles.errorBox}>
+                <Feather name="alert-circle" size={16} color={colors.destructive} />
+                <Text style={{ color: colors.destructive, flex: 1 }}>{error}</Text>
+              </View>
+            )}
+            {connection && loading && <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading remote files…</Text>}
+            {connection && !loading && !error && <FlatList
             data={files}
             keyExtractor={(f) => f.id}
             renderItem={({ item }) => (
@@ -193,6 +303,7 @@ export default function FilesScreen() {
             contentContainerStyle={styles.fileList}
             showsVerticalScrollIndicator={false}
           />
+          }
         </>
       )}
 
@@ -258,6 +369,8 @@ const styles = StyleSheet.create({
   selectionActions: { flexDirection: "row", gap: 16, alignItems: "center" },
   selAction: { padding: 4 },
   fileList: { paddingVertical: 8 },
+  loadingText: { textAlign: "center", padding: 24, fontSize: 13 },
+  errorBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, margin: 12, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: "#ff555566" },
   cloudList: { padding: 16, gap: 10 },
   cloudHint: { fontSize: 13, marginBottom: 4 },
   cloudCard: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, padding: 14, gap: 12 },

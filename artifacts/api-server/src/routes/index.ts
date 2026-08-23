@@ -1,8 +1,12 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
+import healthRouter from "./health.js";
+import sftpRouter from "./sftp.js";
+import keysRouter from "./keys.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(sftpRouter);
+router.use(keysRouter);
 
 export default router;

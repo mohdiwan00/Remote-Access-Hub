@@ -1,0 +1,1 @@
+- [ConnectX networking boundary](connectx-networking.md) — Expo Go can use the backend WebSocket SSH bridge, but public exposure requires authentication and host-key verification.

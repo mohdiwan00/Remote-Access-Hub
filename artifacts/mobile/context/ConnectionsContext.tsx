@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 export type ConnectionType = "ssh" | "vnc" | "rdp" | "sftp";
@@ -50,7 +51,8 @@ interface ConnectionsContextType {
   addConnection: (conn: Omit<Connection, "id">) => void;
   updateConnection: (id: string, conn: Partial<Connection>) => void;
   deleteConnection: (id: string) => void;
-  addKey: (key: Omit<SSHKey, "id" | "createdAt">) => void;
+  addKey: (key: Omit<SSHKey, "id" | "createdAt"> & { privateKey?: string }) => string;
+  getPrivateKey: (id: string) => Promise<string | null>;
   deleteKey: (id: string) => void;
   toggleCloudProvider: (id: string) => void;
   setLastConnected: (id: string) => void;
@@ -170,22 +172,31 @@ export function ConnectionsProvider({ children }: { children: React.ReactNode })
     });
   }, [save]);
 
-  const addKey = useCallback((key: Omit<SSHKey, "id" | "createdAt">) => {
+  const addKey = useCallback((key: Omit<SSHKey, "id" | "createdAt"> & { privateKey?: string }): string => {
     const newKey: SSHKey = { ...key, id: generateId(), createdAt: Date.now() };
+    const privateKey = key.privateKey;
+    delete (newKey as SSHKey & { privateKey?: string }).privateKey;
+    if (privateKey) void SecureStore.setItemAsync(`connectx_private_key_${newKey.id}`, privateKey);
     setKeys((prev) => {
       const next = [...prev, newKey];
       AsyncStorage.setItem(KEYS_STORAGE_KEY, JSON.stringify(next));
       return next;
     });
+    return newKey.id;
   }, []);
 
   const deleteKey = useCallback((id: string) => {
+    void SecureStore.deleteItemAsync(`connectx_private_key_${id}`);
     setKeys((prev) => {
       const next = prev.filter((k) => k.id !== id);
       AsyncStorage.setItem(KEYS_STORAGE_KEY, JSON.stringify(next));
       return next;
     });
   }, []);
+
+  const getPrivateKey = useCallback((id: string) => (
+    SecureStore.getItemAsync(`connectx_private_key_${id}`)
+  ), []);
 
   const toggleCloudProvider = useCallback((id: string) => {
     setCloudProviders((prev) =>
@@ -205,7 +216,7 @@ export function ConnectionsProvider({ children }: { children: React.ReactNode })
     <ConnectionsContext.Provider value={{
       connections, keys, cloudProviders,
       addConnection, updateConnection, deleteConnection,
-      addKey, deleteKey, toggleCloudProvider, setLastConnected,
+       addKey, getPrivateKey, deleteKey, toggleCloudProvider, setLastConnected,
     }}>
       {children}
     </ConnectionsContext.Provider>

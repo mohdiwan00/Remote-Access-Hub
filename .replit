@@ -77,7 +77,7 @@ PORT = "8080"
 [[workflows.workflow]]
 name = "artifacts/mobile: expo"
 author = "agent"
-mode = "sequential"
+mode = "parallel"
 
 [workflows.workflow.metadata]
 outputType = "webview"
@@ -102,3 +102,6 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[objectStorage]
+defaultBucketID = "replit-objstore-bc0a9ab8-1e33-4f5e-aa82-5485402028b9"

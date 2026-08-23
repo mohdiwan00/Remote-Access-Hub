@@ -38,21 +38,14 @@ const SCHEME_COLORS: Record<ColorScheme, string> = {
 export default function TerminalScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { sessions, activeSessionId, colorScheme, fontSize, vimMode, closeSession, setActiveSession, addLine, setColorScheme, setFontSize, setVimMode } = useTerminal();
+  const { sessions, activeSessionId, colorScheme, fontSize, vimMode, closeSession, setActiveSession, sendInput, setColorScheme, setFontSize, setVimMode } = useTerminal();
   const [showSettings, setShowSettings] = useState(false);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
   const handleCommand = (cmd: string) => {
-    if (!activeSessionId) return;
-    if (cmd.startsWith("__output__")) {
-      addLine(activeSessionId, { text: cmd.replace("__output__", ""), type: "output" });
-    } else if (cmd === "__clear__") {
-      // handled inside TerminalView
-    } else {
-      addLine(activeSessionId, { text: `$ ${cmd}`, type: "input" });
-    }
+    if (activeSessionId) sendInput(activeSessionId, `${cmd}\n`);
   };
 
   const handleClose = (id: string) => {
