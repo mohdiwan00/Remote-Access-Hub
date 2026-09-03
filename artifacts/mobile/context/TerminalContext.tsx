@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from "react";
+import { useAuth } from "@clerk/expo";
 import type { Connection } from "./ConnectionsContext";
 
 export type ColorScheme = "green" | "amber" | "cyan" | "white" | "solarized" | "dracula";
@@ -52,6 +53,7 @@ function apiWebSocketUrl(): string {
 }
 
 export function TerminalProvider({ children }: { children: React.ReactNode }) {
+  const { getToken } = useAuth();
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [colorScheme, setColorScheme] = useState<ColorScheme>("green");
@@ -90,56 +92,68 @@ export function TerminalProvider({ children }: { children: React.ReactNode }) {
       return id;
     }
 
-    let socket: WebSocket;
-    try {
-      socket = new WebSocket(apiWebSocketUrl());
-    } catch (error) {
-      setSessions((prev) => prev.map((s) => s.id === id ? {
+    void (async () => {
+      const token = await getToken();
+      if (!token) {
+        setSessions((prev) => prev.map((s) => s.id === id ? {
+          ...s, status: "error",
+          lines: [...s.lines, { id: generateId(), text: "Your sign-in session has expired. Please sign in again.", type: "error", timestamp: Date.now() }],
+        } : s));
+        return;
+      }
+      let socket: WebSocket;
+      try {
+        const url = new URL(apiWebSocketUrl());
+        url.searchParams.set("token", token);
+        socket = new WebSocket(url.toString());
+      } catch (error) {
+        setSessions((prev) => prev.map((s) => s.id === id ? {
+          ...s, status: "error",
+          lines: [...s.lines, { id: generateId(), text: error instanceof Error ? error.message : "Unable to open WebSocket", type: "error", timestamp: Date.now() }],
+        } : s));
+        return;
+      }
+      sockets.current.set(id, socket);
+      socket.onopen = () => {
+        socket.send(JSON.stringify({
+          type: "connect",
+          host: connection.host,
+          port: connection.port,
+          username: connection.username,
+          password: connection.password,
+        }));
+      };
+      socket.onmessage = (event) => {
+        let message: { type?: string; data?: string; message?: string };
+        try { message = JSON.parse(String(event.data)); } catch { return; }
+        setSessions((prev) => prev.map((s) => {
+          if (s.id !== id) return s;
+          if (message.type === "connected") return { ...s, status: "connected" };
+          if (message.type === "connecting") return { ...s, status: "connecting" };
+          if (message.type === "output") return {
+            ...s,
+            lines: [...s.lines, { id: generateId(), text: message.data ?? "", type: "output", timestamp: Date.now() }],
+          };
+          if (message.type === "error") return {
+            ...s,
+            status: "error",
+            lines: [...s.lines, { id: generateId(), text: message.message ?? "SSH connection failed", type: "error", timestamp: Date.now() }],
+          };
+          if (message.type === "closed") return { ...s, status: "disconnected" };
+          return s;
+        }));
+      };
+      socket.onerror = () => setSessions((prev) => prev.map((s) => s.id === id ? {
         ...s, status: "error",
-        lines: [...s.lines, { id: generateId(), text: error instanceof Error ? error.message : "Unable to open WebSocket", type: "error", timestamp: Date.now() }],
+        lines: [...s.lines, { id: generateId(), text: "WebSocket connection failed. Check the API server URL and network access.", type: "error", timestamp: Date.now() }],
       } : s));
-      return id;
-    }
-    sockets.current.set(id, socket);
-    socket.onopen = () => {
-      socket.send(JSON.stringify({
-        type: "connect",
-        host: connection.host,
-        port: connection.port,
-        username: connection.username,
-        password: connection.password,
-      }));
-    };
-    socket.onmessage = (event) => {
-      let message: { type?: string; data?: string; message?: string };
-      try { message = JSON.parse(String(event.data)); } catch { return; }
-      setSessions((prev) => prev.map((s) => {
-        if (s.id !== id) return s;
-        if (message.type === "connected") return { ...s, status: "connected" };
-        if (message.type === "connecting") return { ...s, status: "connecting" };
-        if (message.type === "output") return {
-          ...s,
-          lines: [...s.lines, { id: generateId(), text: message.data ?? "", type: "output", timestamp: Date.now() }],
-        };
-        if (message.type === "error") return {
-          ...s,
-          status: "error",
-          lines: [...s.lines, { id: generateId(), text: message.message ?? "SSH connection failed", type: "error", timestamp: Date.now() }],
-        };
-        if (message.type === "closed") return { ...s, status: "disconnected" };
-        return s;
-      }));
-    };
-    socket.onerror = () => setSessions((prev) => prev.map((s) => s.id === id ? {
-      ...s, status: "error",
-      lines: [...s.lines, { id: generateId(), text: "WebSocket connection failed. Check the API server URL and network access.", type: "error", timestamp: Date.now() }],
-    } : s));
-    socket.onclose = () => {
-      sockets.current.delete(id);
-      setSessions((prev) => prev.map((s) => s.id === id && s.status !== "error" ? { ...s, status: "disconnected" } : s));
-    };
+      socket.onclose = () => {
+        sockets.current.delete(id);
+        setSessions((prev) => prev.map((s) => s.id === id && s.status !== "error" ? { ...s, status: "disconnected" } : s));
+      };
+    })();
     return id;
-  }, [colorScheme]);
+  }, [colorScheme, getToken]);
 
   const closeSession = useCallback((id: string) => {
     sockets.current.get(id)?.close();

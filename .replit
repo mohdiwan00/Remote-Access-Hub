@@ -9,7 +9,6 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "Project"
 
 [[workflows.workflow]]
 name = "artifacts/connectx-video: web"
@@ -77,7 +76,7 @@ PORT = "8080"
 [[workflows.workflow]]
 name = "artifacts/mobile: expo"
 author = "agent"
-mode = "parallel"
+mode = "sequential"
 
 [workflows.workflow.metadata]
 outputType = "webview"
@@ -103,5 +102,5 @@ expertMode = true
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
 
-[objectStorage]
-defaultBucketID = "replit-objstore-bc0a9ab8-1e33-4f5e-aa82-5485402028b9"
+[nix]
+channel = "stable-25_05"
