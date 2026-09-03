@@ -16,7 +16,7 @@ server.on("upgrade", (request, socket, head) => {
   const pathname = request.url?.split("?")[0] ?? "";
   if (pathname === "/api/ssh/ws") {
     wss.handleUpgrade(request, socket as any, head, (ws) => {
-      handleSshWebSocket(ws, request);
+      void handleSshWebSocket(ws, request);
     });
   } else {
     socket.destroy();

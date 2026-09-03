@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { useConnections, type SSHKey } from "@/context/ConnectionsContext";
 import { useColors } from "@/hooks/useColors";
+import { useAuth } from "@clerk/expo";
 
 const KEY_TYPES: SSHKey["type"][] = ["ed25519", "rsa", "ecdsa"];
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
@@ -38,6 +39,7 @@ export default function KeysScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { keys, addKey, deleteKey } = useConnections();
+  const { getToken } = useAuth();
   const [showGenerate, setShowGenerate] = useState(false);
   const [keyType, setKeyType] = useState<SSHKey["type"]>("ed25519");
   const [keyName, setKeyName] = useState("");
@@ -52,9 +54,11 @@ export default function KeysScreen() {
     }
     setGenerating(true);
     try {
+      const token = await getToken();
+      if (!token) throw new Error("Your sign-in session has expired");
       const response = await fetch(`${API_BASE}/api/keys/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ type: keyType, comment: keyName.trim() }),
       });
       const data = await response.json() as { publicKey?: string; privateKey?: string; error?: string };

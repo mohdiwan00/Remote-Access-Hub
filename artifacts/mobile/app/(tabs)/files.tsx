@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { FileItem, type FileEntry } from "@/components/FileItem";
 import { useColors } from "@/hooks/useColors";
 import { useConnections } from "@/context/ConnectionsContext";
+import { useAuth } from "@clerk/expo";
 
 const DEMO_FILES: FileEntry[] = [
   { id: "1", name: "home", type: "dir", modified: Date.now() - 86400000 },
@@ -49,6 +50,7 @@ export default function FilesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { connections } = useConnections();
+  const { getToken } = useAuth();
   const [activeView, setActiveView] = useState<View_>("sftp");
   const [path, setPath] = useState(["/"]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -61,12 +63,20 @@ export default function FilesScreen() {
   const currentPath = "/" + path.slice(1).join("/");
   const connection = connections.find((item) => item.type === "sftp" || item.type === "ssh");
   const apiBase = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+  const authFetch = async (url: string, init?: RequestInit) => {
+    const token = await getToken();
+    if (!token) throw new Error("Your sign-in session has expired");
+    return fetch(url, {
+      ...init,
+      headers: { ...(init?.headers as Record<string, string> | undefined), Authorization: `Bearer ${token}` },
+    });
+  };
 
   const loadFiles = async (sessionId: string, directory: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${apiBase}/api/sftp/list?sessionId=${encodeURIComponent(sessionId)}&path=${encodeURIComponent(directory)}`);
+      const response = await authFetch(`${apiBase}/api/sftp/list?sessionId=${encodeURIComponent(sessionId)}&path=${encodeURIComponent(directory)}`);
       const data = await response.json() as { files?: FileEntry[]; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Unable to list remote files");
       setFiles(data.files ?? []);
@@ -85,7 +95,7 @@ export default function FilesScreen() {
       return;
     }
     setLoading(true);
-    void fetch(`${apiBase}/api/sftp/connect`, {
+    void authFetch(`${apiBase}/api/sftp/connect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ host: connection.host, port: connection.port, username: connection.username, password: connection.password }),
@@ -103,7 +113,7 @@ export default function FilesScreen() {
     return () => {
       cancelled = true;
       setSftpSessionId((sessionId) => {
-        if (sessionId) void fetch(`${apiBase}/api/sftp/disconnect`, {
+        if (sessionId) void authFetch(`${apiBase}/api/sftp/disconnect`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId }),
@@ -155,7 +165,7 @@ export default function FilesScreen() {
           await Promise.all(selected.map(async (id) => {
             const item = files.find((file) => file.id === id);
             if (!item) return;
-            const response = await fetch(`${apiBase}/api/sftp/delete`, {
+            const response = await authFetch(`${apiBase}/api/sftp/delete`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -183,7 +193,7 @@ export default function FilesScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Create", onPress: async (name?: string) => {
         if (!sftpSessionId || !name?.trim()) return;
-        const response = await fetch(`${apiBase}/api/sftp/mkdir`, {
+        const response = await authFetch(`${apiBase}/api/sftp/mkdir`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId: sftpSessionId, path: `${currentPath === "/" ? "" : currentPath}/${name.trim()}` }),

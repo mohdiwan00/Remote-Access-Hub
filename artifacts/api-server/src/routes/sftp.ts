@@ -8,6 +8,7 @@ interface SftpSession {
   client: Client;
   sftp: SFTPWrapper;
   lastUsed: number;
+  userId: string;
 }
 
 const sessions = new Map<string, SftpSession>();
@@ -26,6 +27,12 @@ setInterval(() => {
 
 function mkId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+function getOwnedSession(sessionId: string | undefined, userId: string): SftpSession | undefined {
+  if (!sessionId) return undefined;
+  const session = sessions.get(sessionId);
+  return session?.userId === userId ? session : undefined;
 }
 
 // POST /api/sftp/connect
@@ -68,7 +75,7 @@ router.post("/sftp/connect", (req, res) => {
   client.on("ready", () => {
     client.sftp((err, sftp) => {
       if (err) { fail(err.message); return; }
-      sessions.set(sessionId, { client, sftp, lastUsed: Date.now() });
+      sessions.set(sessionId, { client, sftp, lastUsed: Date.now(), userId: res.locals.userId });
       responded = true;
       res.json({ sessionId });
     });
@@ -82,7 +89,7 @@ router.post("/sftp/connect", (req, res) => {
 // GET /api/sftp/list?sessionId=X&path=/some/dir
 router.get("/sftp/list", (req, res) => {
   const { sessionId, path: dirPath = "/" } = req.query as { sessionId: string; path?: string };
-  const session = sessions.get(sessionId);
+  const session = getOwnedSession(sessionId, res.locals.userId);
   if (!session) { res.status(404).json({ error: "Session not found or expired" }); return; }
   session.lastUsed = Date.now();
 
@@ -108,7 +115,7 @@ router.get("/sftp/list", (req, res) => {
 // POST /api/sftp/mkdir
 router.post("/sftp/mkdir", (req, res) => {
   const { sessionId, path: dirPath } = req.body as { sessionId: string; path: string };
-  const session = sessions.get(sessionId);
+  const session = getOwnedSession(sessionId, res.locals.userId);
   if (!session) { res.status(404).json({ error: "Session not found" }); return; }
   session.lastUsed = Date.now();
   session.sftp.mkdir(dirPath, (err) => {
@@ -122,7 +129,7 @@ router.post("/sftp/delete", (req, res) => {
   const { sessionId, path: filePath, isDir } = req.body as {
     sessionId: string; path: string; isDir?: boolean;
   };
-  const session = sessions.get(sessionId);
+  const session = getOwnedSession(sessionId, res.locals.userId);
   if (!session) { res.status(404).json({ error: "Session not found" }); return; }
   session.lastUsed = Date.now();
   const op = isDir
@@ -137,7 +144,7 @@ router.post("/sftp/delete", (req, res) => {
 // POST /api/sftp/disconnect
 router.post("/sftp/disconnect", (req, res) => {
   const { sessionId } = req.body as { sessionId: string };
-  const s = sessions.get(sessionId);
+  const s = getOwnedSession(sessionId, res.locals.userId);
   if (s) { try { s.client.end(); } catch {} sessions.delete(sessionId); }
   res.json({ ok: true });
 });

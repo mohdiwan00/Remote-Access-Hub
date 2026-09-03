@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import { Client, type ConnectConfig } from "ssh2";
 import type { WebSocket } from "ws";
+import { verifyToken } from "@clerk/backend";
 import { logger } from "../lib/logger.js";
 
 interface ConnectMsg {
@@ -25,7 +26,19 @@ interface ResizeMsg {
 
 type ClientMsg = ConnectMsg | InputMsg | ResizeMsg;
 
-export function handleSshWebSocket(ws: WebSocket, _req: IncomingMessage): void {
+export async function handleSshWebSocket(ws: WebSocket, req: IncomingMessage): Promise<void> {
+  const token = new URL(req.url ?? "", "http://localhost").searchParams.get("token");
+  if (!token || !process.env.CLERK_SECRET_KEY) {
+    ws.close(1008, "Authentication required");
+    return;
+  }
+  try {
+    await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+  } catch {
+    ws.close(1008, "Invalid authentication token");
+    return;
+  }
+
   let sshClient: Client | null = null;
   let shellStream: any = null;
   let connected = false;
