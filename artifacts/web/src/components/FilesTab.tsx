@@ -84,7 +84,13 @@ interface Props {
 }
 
 export function FilesTab({ initialConnectionId, onNotify }: Props) {
-  const { connections, cloudProviders, toggleCloudProvider, getPrivateKey } = useConnections();
+  const {
+    connections,
+    cloudProviders,
+    toggleCloudProvider,
+    getPrivateKey,
+    setActiveSftpConnectionId,
+  } = useConnections();
   const sftpConnections = connections.filter((c) => c.type === "sftp" || c.type === "ssh");
 
   const [activeView, setActiveView] = useState<FileView>("sftp");
@@ -155,14 +161,16 @@ export function FilesTab({ initialConnectionId, onNotify }: Props) {
         throw new Error(data.error ?? "Unable to connect to SFTP");
       }
       setSftpSessionId(data.sessionId);
+      setActiveSftpConnectionId(activeConnection.id);
       await loadFiles(data.sessionId, "/");
     } catch (e) {
       setSftpSessionId(null);
+      setActiveSftpConnectionId(null);
       setError(e instanceof Error ? e.message : "Unable to connect to SFTP");
     } finally {
       setLoading(false);
     }
-  }, [activeConnection, getPrivateKey, loadFiles]);
+  }, [activeConnection, getPrivateKey, loadFiles, setActiveSftpConnectionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,9 +199,11 @@ export function FilesTab({ initialConnectionId, onNotify }: Props) {
           throw new Error(data.error ?? "Unable to connect to SFTP");
         }
         setSftpSessionId(data.sessionId);
+        setActiveSftpConnectionId(activeConnection.id);
         await loadFiles(data.sessionId, "/");
       } catch (e) {
         if (!cancelled) {
+          setActiveSftpConnectionId(null);
           setError(e instanceof Error ? e.message : "Unable to connect to SFTP");
         }
       } finally {

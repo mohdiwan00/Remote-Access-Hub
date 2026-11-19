@@ -57,6 +57,8 @@ interface ConnectionsContextType {
   deleteKey: (id: string) => void;
   toggleCloudProvider: (id: string) => void;
   setLastConnected: (id: string) => void;
+  activeSftpConnectionId: string | null;
+  setActiveSftpConnectionId: (id: string | null) => void;
 }
 
 const ConnectionsContext = createContext<ConnectionsContextType | undefined>(undefined);
@@ -272,6 +274,8 @@ export function ConnectionsProvider({ children }: { children: React.ReactNode })
     });
   }, [saveConnections]);
 
+  const [activeSftpConnectionId, setActiveSftpConnectionId] = useState<string | null>(null);
+
   return (
     <ConnectionsContext.Provider
       value={{
@@ -288,6 +292,8 @@ export function ConnectionsProvider({ children }: { children: React.ReactNode })
         deleteKey,
         toggleCloudProvider,
         setLastConnected,
+        activeSftpConnectionId,
+        setActiveSftpConnectionId,
       }}
     >
       {children}

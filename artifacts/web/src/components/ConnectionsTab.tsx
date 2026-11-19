@@ -47,8 +47,15 @@ interface Props {
 }
 
 export function ConnectionsTab({ onNavigateTab }: Props) {
-  const { connections, addConnection, updateConnection, deleteConnection, setLastConnected } = useConnections();
-  const { openSession } = useTerminal();
+  const {
+    connections,
+    activeSftpConnectionId,
+    addConnection,
+    updateConnection,
+    deleteConnection,
+    setLastConnected,
+  } = useConnections();
+  const { sessions, openSession, setActiveSession } = useTerminal();
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ConnectionType | "all">("all");
@@ -57,21 +64,41 @@ export function ConnectionsTab({ onNavigateTab }: Props) {
   const [confirmDelete, setConfirmDelete] = useState<Connection | null>(null);
   const [remoteViewerConn, setRemoteViewerConn] = useState<Connection | null>(null);
 
+  const getConnectionStatus = (conn: Connection): "active" | "connecting" | "offline" => {
+    const connSessions = sessions.filter((s) => s.connectionId === conn.id);
+    if (connSessions.some((s) => s.status === "connected") || activeSftpConnectionId === conn.id) {
+      return "active";
+    }
+    if (connSessions.some((s) => s.status === "connecting")) {
+      return "connecting";
+    }
+    return "offline";
+  };
+
   const filtered = connections.filter((c) => {
     const matchType = filter === "all" || c.type === filter;
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     const matchSearch =
       !q ||
       c.name.toLowerCase().includes(q) ||
       c.host.toLowerCase().includes(q) ||
-      c.username.toLowerCase().includes(q);
+      c.username.toLowerCase().includes(q) ||
+      c.type.toLowerCase().includes(q) ||
+      (c.group?.toLowerCase().includes(q) ?? false);
     return matchType && matchSearch;
   });
 
   const handleConnect = (conn: Connection) => {
     setLastConnected(conn.id);
     if (conn.type === "ssh") {
-      openSession(conn);
+      const existing = sessions.find(
+        (s) => s.connectionId === conn.id && (s.status === "connected" || s.status === "connecting"),
+      );
+      if (existing) {
+        setActiveSession(existing.id);
+      } else {
+        openSession(conn);
+      }
       onNavigateTab("terminal");
     } else if (conn.type === "sftp") {
       onNavigateTab("files", conn.id);
@@ -107,39 +134,56 @@ export function ConnectionsTab({ onNavigateTab }: Props) {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 rounded-xl border border-[#30363d] bg-[#21262d] px-3 py-2">
+        <div className="flex items-center gap-2 rounded-xl border border-[#30363d] bg-[#21262d] px-3 py-2 focus-within:border-[#58a6ff] transition-colors">
           <Search className="w-4 h-4 text-[#8b949e] shrink-0" />
           <input
+            type="search"
+            aria-label="Filter saved connections by name or host"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search connections..."
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && search) setSearch("");
+            }}
+            placeholder="Filter by name, host, or user..."
             className="flex-1 bg-transparent text-sm text-[#e6edf3] placeholder-[#8b949e] focus:outline-none"
           />
           {search && (
-            <button onClick={() => setSearch("")} className="text-[#8b949e] hover:text-[#e6edf3]">
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="text-[#8b949e] hover:text-[#e6edf3]"
+            >
               <XCircle className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-          {TYPE_FILTERS.map((f) => {
-            const active = filter === f.type;
-            return (
-              <button
-                key={f.type}
-                onClick={() => setFilter(f.type)}
-                style={{
-                  backgroundColor: active ? `${f.color}22` : "transparent",
-                  borderColor: active ? f.color : "#30363d",
-                  color: active ? f.color : "#8b949e",
-                }}
-                className="px-3.5 py-1.5 rounded-full border text-[13px] font-semibold transition-colors shrink-0"
-              >
-                {f.label}
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+            {TYPE_FILTERS.map((f) => {
+              const active = filter === f.type;
+              return (
+                <button
+                  key={f.type}
+                  onClick={() => setFilter(f.type)}
+                  style={{
+                    backgroundColor: active ? `${f.color}22` : "transparent",
+                    borderColor: active ? f.color : "#30363d",
+                    color: active ? f.color : "#8b949e",
+                  }}
+                  className="px-3.5 py-1.5 rounded-full border text-[13px] font-semibold transition-colors shrink-0"
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+          {(search.trim() || filter !== "all") && (
+            <span className="text-xs font-mono text-[#8b949e] shrink-0">
+              {filtered.length}/{connections.length}
+            </span>
+          )}
         </div>
       </div>
 
@@ -150,17 +194,42 @@ export function ConnectionsTab({ onNavigateTab }: Props) {
               <Server className="w-7 h-7 text-[#8b949e]" />
             </div>
             <p className="text-base font-semibold text-[#e6edf3] mb-1">
-              {search ? "No results" : "No connections yet"}
+              {search.trim() || filter !== "all" ? "No matching connections" : "No connections yet"}
             </p>
-            <p className="text-sm text-[#8b949e] max-w-xs">
-              {search
-                ? "Try a different search"
+            <p className="text-sm text-[#8b949e] max-w-xs mb-4">
+              {search.trim() || filter !== "all"
+                ? "Try a different name, host, or protocol filter"
                 : "Click New to add your first SSH, VNC, RDP or SFTP connection"}
             </p>
+            {(search.trim() || filter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setFilter("all");
+                }}
+                className="px-3.5 py-1.5 rounded-lg border border-[#30363d] bg-[#161b22] text-xs font-semibold text-[#e6edf3] hover:border-[#58a6ff]"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
           filtered.map((conn) => {
             const tColor = getTypeColor(conn.type);
+            const connStatus = getConnectionStatus(conn);
+            const statusDotColor =
+              connStatus === "active"
+                ? "#3fb950"
+                : connStatus === "connecting"
+                ? "#d29922"
+                : "#f85149";
+            const statusLabel =
+              connStatus === "active"
+                ? "Active"
+                : connStatus === "connecting"
+                ? "Connecting"
+                : "Offline";
             return (
               <div
                 key={conn.id}
@@ -180,8 +249,24 @@ export function ConnectionsTab({ onNavigateTab }: Props) {
                   </div>
                 </div>
                 <div className="flex-1 py-3 min-w-0">
-                  <p className="text-[15px] font-semibold text-[#e6edf3] truncate">{conn.name}</p>
-                  <p className="text-xs font-mono text-[#8b949e] truncate">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      title={`Session status: ${statusLabel}`}
+                      aria-label={`Session status: ${statusLabel}`}
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                        connStatus === "connecting" ? "animate-pulse" : ""
+                      }`}
+                      style={{ backgroundColor: statusDotColor }}
+                    />
+                    <p className="text-[15px] font-semibold text-[#e6edf3] truncate">{conn.name}</p>
+                    <span
+                      className="text-[11px] font-medium shrink-0"
+                      style={{ color: statusDotColor }}
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs font-mono text-[#8b949e] truncate mt-0.5">
                     {conn.username}@{conn.host}:{conn.port}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
