@@ -27,16 +27,18 @@ interface ResizeMsg {
 type ClientMsg = ConnectMsg | InputMsg | ResizeMsg;
 
 export async function handleSshWebSocket(ws: WebSocket, req: IncomingMessage): Promise<void> {
-  const token = new URL(req.url ?? "", "http://localhost").searchParams.get("token");
-  if (!token || !process.env.CLERK_SECRET_KEY) {
-    ws.close(1008, "Authentication required");
-    return;
-  }
-  try {
-    await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
-  } catch {
-    ws.close(1008, "Invalid authentication token");
-    return;
+  if (process.env.CLERK_SECRET_KEY) {
+    const token = new URL(req.url ?? "", "http://localhost").searchParams.get("token");
+    if (!token) {
+      ws.close(1008, "Authentication required");
+      return;
+    }
+    try {
+      await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+    } catch {
+      ws.close(1008, "Invalid authentication token");
+      return;
+    }
   }
 
   let sshClient: Client | null = null;
